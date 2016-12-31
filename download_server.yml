@@ -5,43 +5,45 @@
 
     vars:
 
-      version_url: https://launchermeta.mojang.com/mc/game/version_manifest.json
+      version_manifest_url: https://launchermeta.mojang.com/mc/game/version_manifest.json
 
     tasks:
 
       - name: Get url json
         uri:
-          url: "{{ version_url }}"
+          url: "{{ version_manifest_url }}"
           follow_redirects: safe
           return_content: yes
-        register: version_url_result
+        register: version_manifest_url_result
 
-      - name: Convert if not application/json 
+      - name: Convert if not application/json
         set_fact:
-          version_url_json: "{{ version_url_result.content | from_json }}"
-        when: "version_url_result.content_type != 'application/json'"
+          version_manifest_url_json: "{{ version_manifest_url_result.content | from_json }}"
+        when: "version_manifest_url_result.content_type != 'application/json'"
 
       - name: Content already application/json
         set_fact:
-          version_url_json: "{{ version_url_result.content }}"
-        when: "version_url_result.content_type == 'application/json'"
+          version_manifest_url_json: "{{ version_manifest_url_result.content }}"
+        when: "version_manifest_url_result.content_type == 'application/json'"
 
-      - name: Guess latest version
+      - name: Set fact latest release value
         set_fact:
-          latest_release: "{{ version_url_json | json_query('latest.release') }}"
+          latest_release: "{{ version_manifest_url_json | json_query('latest.release') }}"
 
       - name: Debug
         debug:
           var: latest_release
 
-      - name: Debug
-        debug:
-          msg: "versions[?id == '{{ latest_release }}']"
+      # TODO: Query local fs for server jar version
+      # Compare to latest_release and determine if download
+      # is needed or exit.
 
-      - name: sf
+      - name: Set fact query meta url {{ latest_release }}
         set_fact:
           query: "versions[?id == '{{ latest_release }}'].url"
 
-      - name: Get relase url
+      - name: Get meta url {{ latest_release }}
         debug:
-          msg: "{{ version_url_json | json_query(query) }}"
+          msg: "{{ version_manifest_url_json | json_query(query) }}"
+
+
