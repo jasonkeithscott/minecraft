@@ -1,0 +1,47 @@
+---
+
+  - name: Download minecraft server jar
+    hosts: localhost
+
+    vars:
+
+      version_url: https://launchermeta.mojang.com/mc/game/version_manifest.json
+
+    tasks:
+
+      - name: Get url json
+        uri:
+          url: "{{ version_url }}"
+          follow_redirects: safe
+          return_content: yes
+        register: version_url_result
+
+      - name: Convert if not application/json 
+        set_fact:
+          version_url_json: "{{ version_url_result.content | from_json }}"
+        when: "version_url_result.content_type != 'application/json'"
+
+      - name: Content already application/json
+        set_fact:
+          version_url_json: "{{ version_url_result.content }}"
+        when: "version_url_result.content_type == 'application/json'"
+
+      - name: Guess latest version
+        set_fact:
+          latest_release: "{{ version_url_json | json_query('latest.release') }}"
+
+      - name: Debug
+        debug:
+          var: latest_release
+
+      - name: Debug
+        debug:
+          msg: "versions[?id == '{{ latest_release }}']"
+
+      - name: sf
+        set_fact:
+          query: "versions[?id == '{{ latest_release }}'].url"
+
+      - name: Get relase url
+        debug:
+          msg: "{{ version_url_json | json_query(query) }}"
