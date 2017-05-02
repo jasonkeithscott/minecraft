@@ -1,49 +1,89 @@
 ---
 
   - name: Download minecraft server jar
-    hosts: localhost
+    hosts: 127.0.0.1
+    connection: local
+    gather_facts: no
 
     vars:
 
       version_manifest_url: https://launchermeta.mojang.com/mc/game/version_manifest.json
+      download_dir: /tmp
+      do_download: false
 
     tasks:
 
-      - name: Get url json
+      # Get content from version_manifest_url
+      - name: Get version_manifest_url
         uri:
           url: "{{ version_manifest_url }}"
           follow_redirects: safe
           return_content: yes
         register: version_manifest_url_result
 
-      - name: Convert if not application/json
+      # Version manifest file sent as 'application/octet-stream'.
+      - name: Content-Type {{ version_manifest_url_result.content_type }}
         set_fact:
           version_manifest_url_json: "{{ version_manifest_url_result.content | from_json }}"
-        when: "version_manifest_url_result.content_type != 'application/json'"
+        when: "version_manifest_url_result.content_type == 'application/octet-stream'"
 
-      - name: Content already application/json
+      # If they ever switch to 'application/json', use this instead.
+      - name: Content-Type application/json
         set_fact:
-          version_manifest_url_json: "{{ version_manifest_url_result.content }}"
+          version_manifest_url_json: "{{ version_manifest_url_result.json }}"
         when: "version_manifest_url_result.content_type == 'application/json'"
 
-      - name: Set fact latest release value
+      - name: Set fact latest_release
         set_fact:
           latest_release: "{{ version_manifest_url_json | json_query('latest.release') }}"
 
-      - name: Debug
+      - name: Debug latest release
         debug:
-          var: latest_release
+          msg: "{{ latest_release }}"
 
-      # TODO: Query local fs for server jar version
-      # Compare to latest_release and determine if download
-      # is needed or exit.
-
-      - name: Set fact query meta url {{ latest_release }}
+      - name: Set fact meta url query
         set_fact:
-          query: "versions[?id == '{{ latest_release }}'].url"
+          query: "versions[?id == '{{ latest_release }}'].url | [0]"
 
-      - name: Get meta url {{ latest_release }}
+      - name: Set fact version_meta_url
+        set_fact:
+          version_meta_url: "{{ version_manifest_url_json | json_query(query) }}"
+
+      - name: Debug version_meta_url
         debug:
-          msg: "{{ version_manifest_url_json | json_query(query) }}"
+          msg: "{{ version_meta_url }}"
 
+      - name: Get version_meta_url
+        uri:
+          url: "{{ version_meta_url }}"
+          follow_redirects: safe
+          return_content: yes
+        register: version_meta_url_result
 
+      - name: Set fact version_meta_url_json
+        set_fact:
+          version_meta_url_json: "{{ version_meta_url_result.content | from_json }}"
+
+      - name: Set fact server_jar_url
+        set_fact:
+          server_jar_url: "{{ version_meta_url_json | json_query('downloads.server.url') }}"
+
+      - name: Set fact server jar sha1
+        set_fact:
+          server_jar_sha1: "{{ version_meta_url_json | json_query('downloads.server.sha1') }}"
+
+      - name: Debug server jar url
+        debug:
+          msg: "{{ server_jar_url }}"
+
+      - name: Debug server jar sha1
+        debug:
+          msg: "{{ server_jar_sha1 }}"
+
+      # Download the server JAR
+      - name: Get server JAR
+        get_url:
+          url: "{{ server_jar_url }}"
+          dest: "{{ download_dir }}/minecraft_server.{{ latest_release }}.jar"
+          checksum: "sha1:{{ server_jar_sha1 }}"
+        when: do_download
