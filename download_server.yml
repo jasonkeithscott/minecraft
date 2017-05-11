@@ -7,9 +7,9 @@
 
     vars:
 
-      version_manifest_url: https://launchermeta.mojang.com/mc/game/version_manifest.json
       download_dir: /tmp
       do_download: false
+      version_manifest_url: https://launchermeta.mojang.com/mc/game/version_manifest.json
 
     tasks:
 
@@ -40,6 +40,7 @@
       - name: Debug latest release
         debug:
           msg: "{{ latest_release }}"
+          verbosity: 1
 
       - name: Set fact meta url query
         set_fact:
@@ -52,6 +53,7 @@
       - name: Debug version_meta_url
         debug:
           msg: "{{ version_meta_url }}"
+          verbosity: 1
 
       - name: Get version_meta_url
         uri:
@@ -75,10 +77,12 @@
       - name: Debug server jar url
         debug:
           msg: "{{ server_jar_url }}"
+          verbosity: 1
 
       - name: Debug server jar sha1
         debug:
           msg: "{{ server_jar_sha1 }}"
+          verbosity: 1
 
       # Download the server JAR
       - name: Get server JAR
